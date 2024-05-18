@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="https://www.thymeleaf.org">
+
+<head>
+  <script src="/static/js/Cesium/jquery-3.6.0.min.js"></script>
+  <script src="/static/js/Cesium/Cesium.js"></script>
+  <link href="/static/js/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <script src="/static/js/Cesium/viewerCesiumNavigationMixin.js"></script>
+  <script src="/static/js/Cesium/Sandcastle-header.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" charset="utf-8"></script>
+
+  <title>MAXAR FLY</title>
+  <link rel="icon" type="image" href="/static/images/bisag_lg.png">
+
+  <style>
+   
+  </style>
+</head>
+
+<body>
+  <div id="cesiumContainer"></div>
+
+  <div id="controls" style="position: absolute; top: 10px; left: 10px; z-index: 1000;">
+    <label for="sizeSlider">Ellipsoid Size:</label>
+    <input id="sizeSlider" type="range" min="50" max="1000" step="100" value="100">
+    <br>
+    <label for="heightSlider">Ellipsoid Height:</label>
+    <input id="heightSlider" type="range" min="0" max="200" step="10" value="0">
+    <br>
+    <label for="directionSlider">Ellipsoid Direction:</label>
+    <input id="directionSlider" type="range" min="0" max="360" step="1" value="0">
+  </div>
+
+  <script>
+    var indiaBoundingBox = {
+      west: 68.1,
+      south: 6.7,
+      east: 97.4,
+      north: 35.7
+    };
+
+    var initialPosition = Cesium.Rectangle.fromDegrees(
+      indiaBoundingBox.west,
+      indiaBoundingBox.south,
+      indiaBoundingBox.east,
+      indiaBoundingBox.north
+    );
+
+    var xaterrain = new Cesium.CesiumTerrainProvider({
+      url: 'https://upspatrika.ncog.gov.in/Terrain/tilesets/test/',
+      requestVertexNormals: true,
+      requestWaterMask: true
+    });
+
+    function OpenStreetMapNominatimGeocoder() {}
+
+    OpenStreetMapNominatimGeocoder.prototype.geocode = function (input) {
+      endpoint = "https://nominatim.openstreetmap.org/search";
+      resource = new Cesium.Resource({
+        url: endpoint,
+        queryParameters: {
+          format: "json",
+          q: input
+        }
+      });
+
+      return resource.fetchJson().then(function (results) {
+        var bboxDegrees;
+        return results.map(function (resultObject) {
+          bboxDegrees = resultObject.boundingbox;
+          return {
+            displayName: resultObject.display_name,
+            destination: Cesium.Rectangle.fromDegrees(
+              bboxDegrees[2],
+              bboxDegrees[0],
+              bboxDegrees[3],
+              bboxDegrees[1]
+            )
+          };
+        });
+      });
+    };
+
+    var viewer = new Cesium.Viewer('cesiumContainer', {
+      terrainProvider: xaterrain,
+      skyAtmosphere: false,
+      fog: false,
+      showGroundAtmosphere: false,
+      sceneModePicker: false,
+      navigationHelpButton: false,
+      homeButton: true,
+      timeline: true,
+      fullscreenButton: false,
+      selectionIndicator: false,
+      imageryProvider: false,
+      geocoder: new OpenStreetMapNominatimGeocoder(),
+      baseLayerPicker: false,
+      shadows: false,
+      terrainShadows: false
+    });
+
+    let bingmapsprovider = new Cesium.BingMapsImageryProvider({
+      url: 'https://dev.virtualearth.net',
+      key: 'Aq9ree9-nRDdhxQdNMMIyiiuHBRUz20oH5QAk_qd6GCtlf3-jVr6lq0feZw6Xqa9'
+    });
+    viewer.imageryLayers.addImageryProvider(bingmapsprovider);
+
+    viewer.camera.setView({
+      destination: initialPosition
+    });
+
+    const initialPositionBuilding = Cesium.Cartesian3.fromDegrees(
+      -74.01881302800248,
+      40.69114333714821,
+      100
+    );
+    const initialOrientationBuilding = new Cesium.HeadingPitchRoll.fromDegrees(
+      -36,
+      -70.0,
+      0.0716951918898415
+    );
+    var viewshed = viewer.entities.add({
+      name: "Wedge",
+      position: initialPositionBuilding,
+      orientation: Cesium.Transforms.headingPitchRollQuaternion(
+        Cesium.Cartesian3.fromDegrees( -74.01881302800248,40.69114333714821,100),
+        new Cesium.HeadingPitchRoll(Cesium.Math.PI / 1.5, 0, 0.0)
+      ),
+      ellipsoid: {
+        radii: new Cesium.Cartesian3(1.0, 1.0, 1.0),
+        innerRadii: new Cesium.Cartesian3(500.0, 500.0, 500.0),
+        minimumClock: Cesium.Math.toRadians(-30.0),
+        maximumClock: Cesium.Math.toRadians(30.0),
+        minimumCone: Cesium.Math.toRadians(-75.0),
+        maximumCone: Cesium.Math.toRadians(-105.0),
+        material: Cesium.Color.DARKCYAN.withAlpha(0.3),
+        outline: true,
+        slicePartitions: 850,
+        stackPartitions: 850,
+      },
+    });
+
+    viewer.zoomTo(viewshed);
+
+
+
+
+
+    
+    // Variables to track key states
+    var keys = {
+      w: false,
+      a: false,
+      s: false,
+      d: false
+    };
+
+    // Earth radius in meters
+    var earthRadius = 6371000;
+    // Convert 5 inches to meters
+    var distanceInMeters = 10.127;
+    // Convert meters to radians
+    var moveAmount = distanceInMeters / earthRadius;
+
+    // Function to smoothly update the ellipsoid's position
+    function updatePosition() {
+      var position = viewshed.position.getValue(Cesium.JulianDate.now());
+      var cartographicPosition = Cesium.Cartographic.fromCartesian(position);
+
+      var deltaLatitude = 0;
+      var deltaLongitude = 0;
+
+      if (keys.w) {
+        deltaLatitude += moveAmount;
+      }
+      if (keys.s) {
+        deltaLatitude -= moveAmount;
+      }
+      if (keys.a) {
+        deltaLongitude -= moveAmount;
+      }
+      if (keys.d) {
+        deltaLongitude += moveAmount;
+      }
+
+      var newLatitude = cartographicPosition.latitude + deltaLatitude;
+      var newLongitude = cartographicPosition.longitude + deltaLongitude;
+
+      var newPosition = Cesium.Cartesian3.fromRadians(
+        newLongitude,
+        newLatitude,
+        cartographicPosition.height
+      );
+
+      viewshed.position = newPosition;
+
+      if (keys.w || keys.a || keys.s || keys.d) {
+        requestAnimationFrame(updatePosition);
+      }
+    }
+
+    // Event listeners for keydown and keyup
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'w' || event.key === 'W') {
+        if (!keys.w) {
+          keys.w = true;
+          requestAnimationFrame(updatePosition);
+        }
+      } else if (event.key === 'a' || event.key === 'A') {
+        if (!keys.a) {
+          keys.a = true;
+          requestAnimationFrame(updatePosition);
+        }
+      } else if (event.key === 's' || event.key === 'S') {
+        if (!keys.s) {
+          keys.s = true;
+          requestAnimationFrame(updatePosition);
+        }
+      } else if (event.key === 'd' || event.key === 'D') {
+        if (!keys.d) {
+          keys.d = true;
+          requestAnimationFrame(updatePosition);
+        }
+      }
+    });
+
+    document.addEventListener('keyup', function(event) {
+      if (event.key === 'w' || event.key === 'W') {
+        keys.w = false;
+      } else if (event.key === 'a' || event.key === 'A') {
+        keys.a = false;
+      } else if (event.key === 's' || event.key === 'S') {
+        keys.s = false;
+      } else if (event.key === 'd' || event.key === 'D') {
+        keys.d = false;
+      }
+    });
+
+
+     // Add glTF model
+     var glbPosition = Cesium.Cartesian3.fromDegrees(-74.01874128015801, 40.691334652552825, 0);
+    viewer.entities.add({
+      name: 'GLTF Model',
+      position: glbPosition,
+      model: {
+        uri: '/static/gltfs/korean_apartment_2.glb',
+        minimumPixelSize: 128,
+        maximumScale: 20000
+      }
+    });
+  </script>
+</body>
+
+</html>
+

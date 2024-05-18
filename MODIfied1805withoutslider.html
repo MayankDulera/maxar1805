@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="https://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAXAR FLY</title>
+    <link rel="icon" type="image" href="/static/images/bisag_lg.png">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" rel="stylesheet">
+    <link href="/static/js/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #cesiumContainer {
+            width: 100%;
+            height: 100vh;
+            position: relative;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        .control-label {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .slider {
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <div id="cesiumContainer"></div>
+    <div id="controls">
+        <div class="control-label">Ellipsoid Size:</div>
+        <input class="slider" id="sizeSlider" type="range" min="50" max="1000" step="10" value="50"><br>
+        <div class="control-label">Ellipsoid Height:</div>
+        <input class="slider" id="heightSlider" type="range" min="0" max="1000" step="10" value="0"><br>
+        <div class="control-label">Ellipsoid Direction:</div>
+        <input class="slider" id="directionSlider" type="range" min="0" max="360" step="1" value="0">
+    </div>
+    <script src="/static/js/Cesium/jquery-3.6.0.min.js"></script>
+    <script src="/static/js/Cesium/Cesium.js"></script>
+    <script src="/static/js/Cesium/viewerCesiumNavigationMixin.js"></script>
+    <script src="/static/js/Cesium/Sandcastle-header.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" charset="utf-8"></script>
+
+  <script>
+    var indiaBoundingBox = {
+      west: 68.1,
+      south: 6.7,
+      east: 97.4,
+      north: 35.7
+    };
+
+    var initialPosition = Cesium.Rectangle.fromDegrees(
+      indiaBoundingBox.west,
+      indiaBoundingBox.south,
+      indiaBoundingBox.east,
+      indiaBoundingBox.north
+    );
+
+    var xaterrain = new Cesium.CesiumTerrainProvider({
+      url: 'https://upspatrika.ncog.gov.in/Terrain/tilesets/test/',
+      requestVertexNormals: true,
+      requestWaterMask: true
+    });
+
+    function OpenStreetMapNominatimGeocoder() {}
+
+    OpenStreetMapNominatimGeocoder.prototype.geocode = function (input) {
+      endpoint = "https://nominatim.openstreetmap.org/search";
+      resource = new Cesium.Resource({
+        url: endpoint,
+        queryParameters: {
+          format: "json",
+          q: input
+        }
+      });
+
+      return resource.fetchJson().then(function (results) {
+        var bboxDegrees;
+        return results.map(function (resultObject) {
+          bboxDegrees = resultObject.boundingbox;
+          return {
+            displayName: resultObject.display_name,
+            destination: Cesium.Rectangle.fromDegrees(
+              bboxDegrees[2],
+              bboxDegrees[0],
+              bboxDegrees[3],
+              bboxDegrees[1]
+            )
+          };
+        });
+      });
+    };
+
+    var viewer = new Cesium.Viewer('cesiumContainer', {
+      terrainProvider: xaterrain,
+      skyAtmosphere: false,
+      fog: false,
+      showGroundAtmosphere: false,
+      sceneModePicker: false,
+      navigationHelpButton: false,
+      homeButton: true,
+      timeline: true,
+      fullscreenButton: false,
+      selectionIndicator: false,
+      imageryProvider: false,
+      geocoder: new OpenStreetMapNominatimGeocoder(),
+      baseLayerPicker: false,
+      shadows: false,
+      terrainShadows: false
+    });
+
+    let bingmapsprovider = new Cesium.BingMapsImageryProvider({
+      url: 'https://dev.virtualearth.net',
+      key: 'Aq9ree9-nRDdhxQdNMMIyiiuHBRUz20oH5QAk_qd6GCtlf3-jVr6lq0feZw6Xqa9'
+    });
+    viewer.imageryLayers.addImageryProvider(bingmapsprovider);
+
+    viewer.camera.setView({
+      destination: initialPosition
+    });
+
+    const initialPositionBuilding = Cesium.Cartesian3.fromDegrees(
+      -74.01881302800248,
+      40.69114333714821,
+      100
+    );
+    const initialOrientationBuilding = new Cesium.HeadingPitchRoll.fromDegrees(
+      -36,
+      -70.0,
+      0.0716951918898415
+    );
+    var viewshed = viewer.entities.add({
+      name: "Wedge",
+      position: initialPositionBuilding,
+      orientation: Cesium.Transforms.headingPitchRollQuaternion(
+        Cesium.Cartesian3.fromDegrees( -74.01881302800248,40.69114333714821,100),
+        new Cesium.HeadingPitchRoll(Cesium.Math.PI / 1.5, 0, 0.0)
+      ),
+      ellipsoid: {
+        radii: new Cesium.Cartesian3(1.0, 1.0, 1.0),
+        innerRadii: new Cesium.Cartesian3(50.0, 50.0, 50.0),
+        minimumClock: Cesium.Math.toRadians(-30.0),
+        maximumClock: Cesium.Math.toRadians(30.0),
+        minimumCone: Cesium.Math.toRadians(-75.0),
+        maximumCone: Cesium.Math.toRadians(-105.0),
+        material: Cesium.Color.DARKCYAN.withAlpha(0.3),
+        outline: true,
+        slicePartitions: 1000,
+        stackPartitions: 1000,
+      },
+    });
+
+    viewer.zoomTo(viewshed);
+    // viewer.trackedEntity = viewshed;
+    
+
+
+    // Add event listeners for sliders
+    var sizeSlider = document.getElementById('sizeSlider');
+    var heightSlider = document.getElementById('heightSlider');
+    var directionSlider = document.getElementById('directionSlider');
+
+    sizeSlider.oninput = function () {
+      var radius = parseInt(this.value);
+      viewshed.ellipsoid.innerRadii = new Cesium.Cartesian3(radius, radius, radius);
+      
+        changeModelColorOnCollision(viewshed.position, glbModelEntity);
+    };
+
+    heightSlider.oninput = function () {
+      var height = parseInt(this.value);
+      viewshed.position = Cesium.Cartesian3.fromDegrees(-74.01881302800248, 40.69114333714821, height);
+      changeModelColorOnCollision(viewshed.position, glbModelEntity);
+    };
+
+    directionSlider.addEventListener('input', function() {
+      var direction = parseFloat(directionSlider.value);
+      viewshed.orientation = Cesium.Transforms.headingPitchRollQuaternion(
+        Cesium.Cartesian3.fromDegrees(-74.01881302800248, 40.69114333714821, heightSlider.value),
+        new Cesium.HeadingPitchRoll(Cesium.Math.toRadians(direction), 0, 0
+        ));
+        changeModelColorOnCollision(viewshed.position, glbModelEntity);
+    });
+
+    // Add event listener for arrow key presses
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'ArrowUp') {
+        var currentDirection = parseFloat(directionSlider.value);
+        directionSlider.value = currentDirection + 1;
+        directionSlider.dispatchEvent(new Event('input'));
+        
+        
+      } else if (event.key === 'ArrowDown') {
+        var currentDirection = parseFloat(directionSlider.value);
+        directionSlider.value = currentDirection - 1;
+        directionSlider.dispatchEvent(new Event('input'));
+        
+      } else if (event.key === 'ArrowLeft') {
+        var currentDirection = parseFloat(directionSlider.value);
+        directionSlider.value = (currentDirection - 1 + 360) % 360;
+        directionSlider.dispatchEvent(new Event('input'));
+        
+      } else if (event.key === 'ArrowRight') {
+        var currentDirection = parseFloat(directionSlider.value);
+        directionSlider.value = (currentDirection + 1) % 360;
+        directionSlider.dispatchEvent(new Event('input'));
+        
+      }
+    });
+
+        // Variables to track key states
+    var keys = {
+      w: false,
+      a: false,
+      s: false,
+      d: false
+    };
+
+    // Earth radius in meters
+    var earthRadius = 6371000;
+    // Convert 5 inches to meters
+    var distanceInMeters = 5.127;
+    // Convert meters to radians
+    var moveAmount = distanceInMeters / earthRadius;
+
+    // Function to smoothly update the ellipsoid's position
+    function updatePosition() {
+      var position = viewshed.position.getValue(Cesium.JulianDate.now());
+      var cartographicPosition = Cesium.Cartographic.fromCartesian(position);
+
+      var deltaLatitude = 0;
+      var deltaLongitude = 0;
+
+      if (keys.w) {
+        deltaLatitude += moveAmount;
+        changeModelColorOnCollision(viewshed.position, glbModelEntity);
+      }
+      if (keys.s) {
+        deltaLatitude -= moveAmount;
+        var trackedEntity = viewer.trackedEntity;
+        changeModelColorOnCollision(viewshed.position, glbModelEntity);
+      }
+      if (keys.a) {
+        deltaLongitude -= moveAmount;
+        
+        changeModelColorOnCollision(viewshed.position, glbModelEntity);
+      }
+      if (keys.d) {
+        deltaLongitude += moveAmount;
+        changeModelColorOnCollision(viewshed.position, glbModelEntity);
+      }
+
+      var newLatitude = cartographicPosition.latitude + deltaLatitude;
+      var newLongitude = cartographicPosition.longitude + deltaLongitude;
+
+      var newPosition = Cesium.Cartesian3.fromRadians(
+        newLongitude,
+        newLatitude,
+        cartographicPosition.height
+      );
+
+      viewshed.position = newPosition;
+
+      if (keys.w || keys.a || keys.s || keys.d) {
+        requestAnimationFrame(updatePosition);
+      }
+    }
+
+    // Event listeners for keydown and keyup
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'w' || event.key === 'W') {
+        if (!keys.w) {
+          keys.w = true;
+          requestAnimationFrame(updatePosition);
+        }
+      } else if (event.key === 'a' || event.key === 'A') {
+        if (!keys.a) {
+          keys.a = true;
+          requestAnimationFrame(updatePosition);
+        }
+      } else if (event.key === 's' || event.key === 'S') {
+        if (!keys.s) {
+          keys.s = true;
+          requestAnimationFrame(updatePosition);
+        }
+      } else if (event.key === 'd' || event.key === 'D') {
+        if (!keys.d) {
+          keys.d = true;
+          requestAnimationFrame(updatePosition);
+        }
+      }
+    });
+
+    document.addEventListener('keyup', function(event) {
+      if (event.key === 'w' || event.key === 'W') {
+        keys.w = false;
+      } else if (event.key === 'a' || event.key === 'A') {
+        keys.a = false;
+      } else if (event.key === 's' || event.key === 'S') {
+        keys.s = false;
+      } else if (event.key === 'd' || event.key === 'D') {
+        keys.d = false;
+      }
+    });
+
+
+     // Add glTF model
+     var glbPosition = Cesium.Cartesian3.fromDegrees(-74.01874128015801, 40.691334652552825, 0);
+    var glbModelEntity = viewer.entities.add({
+      id:'GLTF Model',
+      name: 'GLTF Model',
+      position: glbPosition,
+      model: {
+        uri: '/static/gltfs/korean_apartment_2.glb',
+        minimumPixelSize: 128,
+        maximumScale: 20000,
+        silhouetteColor: Cesium.Color.RED,
+        silhouetteSize: 2,
+        scale: 1.0
+      }
+    });
+
+    var collisionThreshold = 10.0; // Adjust this value according to your scene
+
+// Function to calculate distance between two Cartesian3 positions
+function calculateDistance(position1, position2) {
+    return Cesium.Cartesian3.distance(position1, position2);
+}
+
+// Function to change GLB model color on collision
+function changeModelColorOnCollision(ellipsoidPosition, glbEntity) {
+    var glbPosition = glbEntity.position.getValue(viewer.clock.currentTime);
+    var distance = calculateDistance(ellipsoidPosition, glbPosition);
+        
+    
+    if (distance < collisionThreshold) {
+      console.log("Innnnnnnn");
+        // Change the color to red if collision detected
+        glbEntity.model.color = Cesium.Color.RED;
+    } else {
+        // Change the color back to its original color if no collision
+        glbEntity.model.color = Cesium.Color.WHITE;
+    }
+}
+
+  </script>
+</body>
+
+</html>
+
